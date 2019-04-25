@@ -1,1 +1,520 @@
+## 10、简化函数调用
+###### 概要
+> 在讲解本章之前，我想和大家一起整理一下这章和前面几章的关系：
+* 1.**重新组织函数**
+> 在一个类中对类变量、方法进行操作，如函数的合并与分解，临时变量的提取与分解，以查询函数取代复用的临时变量等手法实现重新组织函数。
+* 2.**在对象间搬移特性**
+> 在多个类之间对类、类的特性进行操作，如根据特性与类的亲疏关系搬移函数和字段，对类进行合并与分解等手法实现在对象之间搬移特性进行重构。
+* 3.**简化函数调用**
+> 本章则是在一个更小的范围内进行，针对的是函数的本身（即构成一个函数的基本要素函数名、参数）做重构。
+#### 10.1、Rename Method(函数改名)
+* 场景
+> 随着迭代开发的不断进行，一个函数所具备的功能可能已经远远大于了最初创建者的赋予本意，这时候我们想到了什么？
+  ？？？？？？
+```
+people getPeoplesConfig(int id) {
+        People people = dao.getPeoplesConfig(id);
+
+        if (people.getAge() > 0 && people.getAge() <= 18) {
+            if (people.getSex == 1) {
+                System.out.print("他叫" + people.getName() + ",是一名男性少年");
+            }
+            System.out.print("她叫" + people.getName() + ",是一名女性少年");
+        }
+
+        if (people.getAge() > 18 && people.getAge() <= 44) {
+            if (people.getSex() == 1) {
+                System.out.print("他叫" + people.getName() + ",是一名男性青年");
+            }
+            System.out.print("她叫" + people.getName() + ",是一名女性青年");
+        }
+
+        if (people.getAge() > 44 && people.getAge() <= 60) {
+            if (people.getSex == 1) {
+                System.out.print("他叫" + people.getName() + ",是一名男性中年");
+            }
+            System.out.print("她叫" + people.getName() + ",是一名女性中年");
+        }
+
+        if (people.getAddress().equals("西安")) {
+            System.out.print("是一名西安人");
+        } else {
+            System.out.print("不是一名西安人");
+        }
+    }
+ ```
+*  函数内部功能过于复杂，使用 Extract Method() 进行函数提炼
+```
+ people getPeopleConfig(int id) {
+        People people = dao.getPeopleConfig(id);
+
+        getSexAndAgetAndName(prople);
+        getAddress(people);
+       
+    }
+
+    getSexAndAge(People people) {
+        if (people.getAge() > 0 && people.getAge() <= 18) {
+            if (people.getSex() == 1) {
+                System.out.print("他叫" + people.getName() + ",是一名男性少年");
+            }
+            System.out.print("她叫" + people.getName() + ",是一名女性少年");
+        }
+
+        if (people.getAge() > 18 && people.getAge() <= 44) {
+            if (people.getSex() == 1) {
+                System.out.print("他叫" + people.getName() + ",是一名男性青年");
+            }
+            System.out.print("她叫" + people.getName() + ",是一名女性青年");
+        }
+
+        if (people.getAge() > 44 && people.getAge() <= 60) {
+            if (people.getSex() == 1) {
+                System.out.print("他叫" + people.getName() + ",是一名男性中年");
+            }
+            System.out.print("她叫" + people.getName() + ",是一名女性中年");
+        }
+    }
+
+    getAddress(people) {
+        if (people.getAddress().equals("西安")) {
+            System.out.print("是一名西安人");
+        } else {
+            System.out.print("不是一名西安人");
+        }
+    }
+ ```
+* 思考进行提炼后的各函数是否存在问题？
+> 函数命名不合理，函数名没有准确的表达出函数本身的功能，这样会对函数的调用者造成误导；函数提炼不彻底，任然存在重复代码，可对重复代码继续提炼。
+
+```
+  String getPeopleConfigById(int id) {
+        People people = dao.getPeopleConfig(id);
+
+        return "他叫："+people.getName()+",是一个"+getSex(people.getSex())+determineAgeStage(people.getAge())+isXianPeople(people.getAddress());
+
+    }
+
+    String determineAgeStage(int age) {
+        if (people.getAge() > 0 && people.getAge() <= 18) {
+           return "少年";
+        }
+
+        if (people.getAge() > 18 && people.getAge() <= 44) {
+            return "青年";
+        }
+
+        if (people.getAge() > 44 && people.getAge() <= 60) {
+            return "中年";
+        }
+    }
+
+    String getSex (int sex) {
+        if (people.getSex() == 1) {
+            return "男";
+        }
+        return "女";
+    }
+
+    String isXianPeople(String address) {
+        if (people.getAddress().equals("西安")) {
+           return "是西安人";
+        }
+        return "不是西安人";
+    }
+   ```
+   > 其实现在代码还有一些问题，并可使用具体的重构手法去解决，留待我们后面一起去探讨
+#### 10.2、Add/Remove Parameter (添加与去除参数)
+> 看到一个函数，怎么去判别是否需要使用本重构手法。首先我们先看看参数，然后进行下面几个流程
+* Add Parameter
+> 按序执行，优先级递减
+1. 你能从这些参数得到所需的信息吗？ 
+2. 缺失的信息可以通过某个函数进行获取吗？ 
+3. 你究竟把这些信息都用来干嘛了，每一个信息都是必要的吗？
+4. 这个函数是否应该属于拥有该参数的那个对象？ 
+5. 考虑 Move Method()。
+6. 考虑加入新参数是否合适？
+7. 考虑 Introduce Parameter Object()。
+8. 添加新参数
+9. 退出
+* Remove Parameter
+1. 所有的参数是否都有他的用途？ 否 goto 5
+2. 部分参数是否可以通过函数进行获取？ 是 goto 5
+3. 函数是否应该属于参数所属的类？ 是 goto 4
+4. 考虑Move Method
+5. 去除参数
+
+#### 10.3、Separate Query from Modifier (将查询函数和修改函数分离)
+> 函数的两个重要类型
+1. 查询函数-->根据一些线索进行数据获取
+2. 修改函数-->把数据进行一些特别的处理已达到某些目的
+> 很多时候我们都把这两个函数揉在一起进行使用，查询函数里面有修改，修改函数里面有查询。从而导致其他想要获取原始数据的人调用这种函数得到的是加工后的数据，想要进行数据修改的函数调用者又得到了一大堆自己不想要的多余数据。
+
+> 如果我们一直遵循把查询函数和修改函数分离的原则，查询函数只负责数据获取，修改函数只执行特定的数据处理，这样会极大的增强代码的可读性和降低修改成本。
+
+#### 10.4、 Parameterize Method(令函数携带参数)
+> 当你发现某几个函数，他们做着类似的工作，但因少数几个值导致了行为的略有不同。
+```
+Dollars baseCharge() {
+        double result = Math.min(lastUsage(), 100) * 0.03; //Math.min(x, y)获取两者中小的一个
+        if(lastUsage > 100) {
+            result += (Math.min(lastUsage(), 200) - 100) * 0.05;
+        }
+
+        if(lastUsage > 200) {
+            result += (lastUsage() - 200) * 0.07;
+        }
+        
+        return new Dollars(result);
+    }
+```
+---
+```
+    Dollars baseCharge() {
+        double result = Math.min(lastUsage(), 100) * 0.03; //Math.min(x, y)获取两者中小的一个
+        result += usageInRange(100, 200) * 0.05;
+        result += usageInRange(200, Integer.MAX_VALUE) * 0.07;
+        return new Dollars(result);
+    }
+
+    int usageInRange(int start, int end) {
+        if(lastUsage > start) {
+            return Math.min(lastUsage(), end) - start;
+        }else {
+            return 0;
+        }
+    }
+ ```
+#### 10.5、 Replace Parameter with Explicit Methods (以明确函数取代参数)
+> 如果某个参数有多种可能性，而函数又以条件表达式检查这些参数，并根据不同的参数值做出不同的行为，那我们就应该考虑使用本重构手法。
+
+```
+static final int ENGINEER = 0;
+    static final int SALESMAN = 1;
+    static final int MANAGER = 2;
+
+    static Employee create(int type) {
+        switch (type) {
+            case ENGINEER:
+                return new Engineer();
+            case SALESMAN:
+                return new Salesman();
+            case MANAGER:
+                return new Manager();
+            default:
+                throw new IllegalArgumentException("Incoreect type code value");
+        }
+    }
+```
+> ***以明确函数取代参数***进行重构后：
+```
+    static Employee createEngineer() {
+        return new Engineer();
+    }
+
+    static Employee createSalesman() {
+        return new Salesman();
+    }
+
+    static Employee createManager() {
+        return new Manager();
+    }
+ ```
+ > 修改前调用者这样调用函数，获取相应的子类
+ ```
+    Employee kent = Employee.create(ENGINEER);
+ ```
+ > 修改后通过编译和测试，我们可以直接删除 create(type) 函数，以这样的调用方式取代原来的函数
+ ```
+    Employee kent = Employee.createEngineer();
+  ```
+* 这么做的好处又哪些呢？
+1. 提供不同的函数供调用者使用，可以避免条件表达式的出现。
+2. 进行编译检查时你可以获得优惠，而且接口也更清楚，如果以传递参数决定函数的行为，调用者据需要花时间去观察函数，并且还要考虑所传入参数值是否合法。
+
+#### 10.6、 Preserve Whole Object (保持对象的完整性)
+> 有时候，我们可能会把来自同一对象的若干数据作为参数，传递给某个函数
+* 我们先来看看这样做带来的好处有哪些
+1. 降低了未来的修改成本：万一将来被调用函数需要新的数据项，你必须查找并修改对此函数的所有调用。
+2. 提高了代码的可读性：过长的参数很难使用，因为调用者和被调用者都必须记住这些参数的用途。
+* 除了好处，难道就没有坏处了吗？
+> 答案是否定的，如果我们传递的是参数，而不是对象，被调用函数只会依赖这个值，而不依赖他所属的对象；如果传递的是对象，被调用函数所属的对象就需要依赖参数对象，会造成依赖结构恶化。
+* 很多时候重构的手法并不是单一使用的，那么使用本手法时我们应该结合哪些其他手法一起进行呢？
+1. Move Method()
+  > 既然我们把来自同一对象的若干数据作为参数传递给某个函数，那我们为是不考虑把此函数移动到这个对象中来呢？
+2. Introduce Parameter Object()
+  > 如果这个时候我们还没有定义一个完整对象，即这些参数并不完全属某一个类，而这组参数又总是一起被传递（数据泥团），我们可以重新定义一个对象包装这些数据。本手法的具体利弊分析，我们第8小节再探讨。
+ ```
+ class Room { //房间
+    Boolean withinPlan(HeatingPlan plan) {
+        int low = daysTempRange().getLow();
+        int high = daysTempRange().getHigh();
+        return plan.withinRange(low, high);
+    }
+    ...
+}
+
+class HeatingPlan { // 比较规则
+    private TempRan _range; //预设的温度范围
+    boolean withinRange(int low, int high) {
+        return (low >= _range.getLow() && high <= _range.getHigh());
+    }
+}
+```
+> 我们可以使用本重构手法进行重构，结果如下：
+```
+class Room { //房间温度最低和最高
+    Boolean withinPlan(HeatingPlan plan) {
+        return plan.withinRange(daysTempRange());
+    }
+    ...
+}
+
+class HeatingPlan { // 比较规则
+    private TempRan _range; //预设的温度范围
+    boolean withinRange(TempRange roomRange) {
+        return (roomRange.getLow() >= _range.getLow() && roomRange.getHigh() <= _range.getHigh());
+    }
+}
+
+ ```
+ > 进一步观察，我们还可以把某些函数移到TempRange对象中
+ ```
+ class Room { //房间温度最低和最高
+    Boolean withinPlan(HeatingPlan plan) {
+        return plan.withinRange(daysTempRange());
+    }
+    ...
+}
+class HeatingPlan { // 比较规则
+    private TempRan _range; //预设的温度范围
+    boolean withinRange(TempRange roomRange) {
+        return (_range.includes(roomRange));
+    }
+    
+}
+class TempRange {
+    boolean includes(TempRange arg) {
+        return (arg.getLow() >= this.getLow() && arg.getHigh() <= this.getHigh());
+    }
+}
+ ```
+ #### 10.7、Replace Rarameter with Methods (以函数取代参数) 
+ * 原因：过长的参数列是一种坏味道，他会增加程序的阅读难度。
+ 
+ * 适用场景：对象调用某个参数，并将结果作为参数，传递给另一个函数，而接受该参数的函数本身也能够调用前一个函数；让参数接受者去除该项参数，并直接调用前一个参数
+ 1. 如果参数的接收端本来就存在被调用端对象的引用，按照上面这样做肯定没有问题。但是参数的接收端没有被调用端对象的引用，而你也不想添加这个引用，那就不适用了。
+ 2. 如果调用这个函数的地方很多，你并不能完全找到这些调用的地方，这个时候你贸然的修改此函数，可能造成的问题远大于进行重构所带来的利益，也不建议进行本重构。
+ ###### 做法
+ 
+1、如果有必要，将参数的计算过程提炼到一个独立的函数中
+
+2、将函数本体内引用该参数的地方改为调用新建的函数
+
+3、每次替换后，编译并测试
+
+4、全部替换完成后，使用Remove Parameter将该参数去除
+ 
+```
+double getPrice() {
+    int basePrice = _quantity * _itemPrice ;
+    int discountLevel;
+    if (_quantity > 100) {
+        discountLevel = 2;
+    }else {
+        discountLevel = 1;
+    }
+    double finalPrice = discountedPrice(discountLevel, basePrice);
+    return finalPrice;
+}
+
+private double discountedPrice (int discountLevel, int basePrice) {
+    if (discountLevel == 2) {
+        return basePrice * 0.8;
+    }
+    
+    return basePrice * 0.9;
+}
+```
+```
+private int getDiscountLevel() {
+    if (_quantity > 100) {
+        return 2;
+    }
+    
+    return 1;
+}
+
+private double getBasePrice() {
+    return _quantity * _itemPrice;
+} 
+
+double getPrice() {
+    if (getDiscountLevel() == 2) {
+        return getBasePrice() * 0.8;
+    }
+    
+    return getBasePrice() * 0.9;
+}
+```
+#### 10.8、Introduce Prarmeter Object (引入参数对象)
+* 场景
+> 看到同一组数据总是一起被传递，或者同一组数据有好多函数都在使用，这些数据可能都来自同一个类，也可能来自多个不同的类。这也就是我们之前提到的***Data Clumps数据泥团***。
+* 遇到这种情况怎么处理呢？
+> 我们可以运用一个对象把这组数据包装起来，使用对象来取代它们，之前使用这组数据的地方都替换为对象的引用。
+* 这么做的能带来哪些价值呢？
+1. 缩减了参数列的长度。
+2. 把这些参数组织到一起之后，往往很快可以发现一些可以被移至新类的行为。通常那些使用这组参数的函数都会对这一组参数有一些共同的处理，这时候我们就可以把这些共同的处理移至新对象，从而减少重复代码。
+看如下示例：一个用于存储数据的账项对象，一个进行数据计算的账目对象
+ ```
+ class Entry { //账项
+        private Date _chargeDate;
+        private double _value;
+        Entry(Date chargeDate, double value) {
+            chargeDate = _chargeDate;
+            value = _value;
+        }
+
+        Date getDate() {
+            return _chargeDate;
+        }
+
+        double getValue() {
+            return _value;
+        }
+    }
+
+    class Account {  //账目对象
+        double getFlowBetween(Date start, Date end) {
+            double result = 0;
+            private Vector _entries = new Vector();
+            Enumeration e = _entries.elements(); //Enumeration接口定义了从一个数据结构得到连续数据的手段
+
+            while(e.hasMoreElements()) {  //测试此枚举是否包含更多的元素
+                Entry each = (Entry)e.nextElement();
+                if (each.getDate().equals(start) || each.getDate().equals(end) || (each.getDate().after(start) &&            each.getDate().before(end)) ) {
+                   result += each.getValue();
+                }
+            }
+
+            return result;
+        }
+    }
+```
+重构之后：
+```
+    class DateRange {
+        private final Date _start;
+        private final Date _end;
+
+        DateRange(Date start, Date end) {
+            _start = start;
+            _end = end;
+        }
+
+        Date getStart() {
+            return _start;
+        }
+
+        Date getEnd() {
+            return _end;
+        }
+
+        boolean includes(Date arg) {
+           return (arg.equals(_start) || arg.equals(_end) || (arg.after(_start) && arg.before(_end)));
+        }
+    }
+
+class Account {
+    double getFlowBetween(DateRange range) {
+        double result = 0;
+        private Vector _entries = new Vector();
+        Enumeration e = _entries.elements(); //Enumeration接口定义了从一个数据结构得到连续数据的手段
+
+        while(e.hasMoreElements()) {  //测试此枚举是否包含更多的元素
+            Entry each = (Entry)e.nextElement();
+            if (range.includes(each.getDate())) {
+                result += each.getValue();
+            }
+        }
+
+        return result;
+    }
+}
+```
+#### 10.9、Remove Setting Method (移除设置函数)
+* 情景1（可直接去除设置函数）
+> 如果你为某个变量提供了设置函数，那么就暗示这个变量可以被改变。如果你不希望对象在被创建之后此变量还能被修改，那就不要给它提供设置函数（同时还有final修饰它）
+* 场景2(需要对外保留修改操作)
+ ```
+ class Account {                                   
+    private String _id;                           
+                                                  
+    public String get_id() {                      
+        return _id;                               
+    }                                             
+                                                  
+    public void set_id(String _id) {              
+        this._id = _id;                           
+    }                                             
+}                                                 
+ ```
+> 1. 对变量的修改很简单，并且只有一个构造函数
+
+```
+class Account {                                   
+    private final String _id;                           
+                                                  
+    Account (String id) {
+    _id = id;
+    }                                      
+}                                                 
+```
+> 2. 如果修改很复杂，且不知一个函数调用了它，这个时候就不在适合使用构造函数替代函数的方式。需要单独的提供一个函数，我们能做的就是给这个函数取一个好名字，清楚的表达函数的用途。
+
+#### 10.10、Hide Method(隐藏函数)
+#### 10.11、Replace Constructor with Factory Method(以工厂函数取代构造函数)
+* 适用场景
+> 根据类型码创建相应的对象，而构造函数只能返回单一类型的对象。这时候我们就可以使用工厂函数来替代构造函数。
+```
+class Employee {                                                                    
+    private static int _type;                                                       
+    static final int ENGINEER = 0;                                                  
+    static final int SALESMAN = 1;                                                  
+    static final int MANAGER = 2;                                                   
+                                                                                    
+    Employee (int type) {                                                           
+        _type = type;                                                               
+    }                                                                               
+ ```
+ > 使用工厂函数替代构造函数
+ ```
+    Employee create (int type) {                                                    
+        switch (type) {                                                             
+            case ENGINEER:                                                          
+                return new Engineer();                                              
+            case SALESMAN:                                                          
+                return new Salesman();                                                  
+            case MANAGER:                                                           
+                return new Manager();                                                   
+            default:                                                                
+                throw new IllegalArgumentException("Incorrect type code value");    
+        }                                                                           
+    }                                                                               
+   ```
+   > 这种实现方式也存在缺陷，当我需要新添加一个子类的时候，就必须要更新swith
+   ```
+    Employee create (String name) {                                                 
+        try{                                                                        
+            return (Employee) Class.forName(name).newInstance();                    
+        } catch (Exception e) {                                                     
+               throw new IllegalArgumentException("Unable to instantiate"+name);    
+        }                                                                           
+    }                                                                               
+}                                                                                   
+                                                                                    
+    Employee emp = Employee.create(Employee.ENGINEER);                              
+```
+
+#### 10.12、Encapsulate Downcast(封装向下转型)
 
